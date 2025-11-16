@@ -7,7 +7,7 @@ authors = [
 ]
 license = 'MIT'
 readme = "README.md"
-requires-python = ">3.6"
+requires-python = ">=3.9, <3.13" # mediapipe requires 3.9-3.12
 
 keywords = ["eye-tracking", "scalable", "rgb", "gaze"]
 
