@@ -19,7 +19,8 @@ dependencies = [
     'mediapipe',
     'numpy',
     "opencv-python",
-    "scipy"
+    "scipy",
+    "tensorflow",
 ]
 
 [project.optional-dependencies]
