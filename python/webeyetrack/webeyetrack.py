@@ -7,10 +7,6 @@ import random
 import tensorflow as tf
 import cv2
 import numpy as np
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
-import mediapipe as mp
-
 from .filter import KalmanFilter2D
 from .constants import FACE_LANDMARKER_PATH, BLAZEGAZE_PATH
 from .model_based import (
@@ -25,6 +21,7 @@ from .model_based import (
 )
 from .data_protocols import GazeResult, TrackingStatus
 from .blazegaze import BlazeGaze, BlazeGazeConfig
+from .mp_compat import create_face_landmarker, mp_image_from_frame
 
 def mae_cm_loss(y_true, y_pred, screen_info):
     """
@@ -183,13 +180,7 @@ class WebEyeTrack():
             config = WebEyeTrackConfig()
         self.config = config
 
-        # Setup MediaPipe Face Facial Landmark model
-        base_options = python.BaseOptions(model_asset_path=config.mediapipe_flm_model_fp)
-        options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                            output_face_blendshapes=True,
-                                            output_facial_transformation_matrixes=True,
-                                            num_faces=1)
-        self.face_landmarker = vision.FaceLandmarker.create_from_options(options)
+        self.face_landmarker = create_face_landmarker(config.mediapipe_flm_model_fp)
 
         # Load the BlazeGaze model
         model_config = BlazeGazeConfig(
@@ -276,7 +267,7 @@ class WebEyeTrack():
     
     def detect_facial_landmarks(self, frame: np.ndarray) -> Tuple[bool, Tuple[Optional[np.ndarray], Optional[np.ndarray], Any]]:
         # Detect the landmarks
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame.astype(np.uint8))
+        mp_image = mp_image_from_frame(frame)
         detection_results = self.face_landmarker.detect(mp_image)
 
         # Compute the face bounding box based on the MediaPipe landmarks
@@ -286,7 +277,16 @@ class WebEyeTrack():
             return False, (None, None, detection_results)
         
         # Extract information fro the results
-        face_landmarks = np.array([[lm.x, lm.y, lm.z, lm.visibility, lm.presence] for lm in face_landmarks_proto])
+        face_landmarks = np.array([
+            [
+                lm.x,
+                lm.y,
+                lm.z,
+                0.0 if lm.visibility is None else lm.visibility,
+                0.0 if lm.presence is None else lm.presence,
+            ]
+            for lm in face_landmarks_proto
+        ], dtype=np.float32)
         face_rt = detection_results.facial_transformation_matrixes[0]
         return True, (face_landmarks, face_rt, detection_results)
 

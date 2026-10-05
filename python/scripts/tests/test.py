@@ -1,9 +1,7 @@
 import pathlib
 import cv2
 import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+from webeyetrack.mp_compat import create_face_landmarker, mp_image_from_frame
 import imutils
 import math
 
@@ -82,13 +80,7 @@ if __name__ == '__main__':
     # Load the webcam 
     cap = cv2.VideoCapture(0)
 
-    # Setup MediaPipe Face Landmark model
-    base_options = python.BaseOptions(model_asset_path=str(PYTHON_DIR / 'weights' / 'face_landmarker_v2_with_blendshapes.task'))
-    options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                        output_face_blendshapes=True,
-                                        output_facial_transformation_matrixes=True,
-                                        num_faces=1)
-    face_landmarker = vision.FaceLandmarker.create_from_options(options)
+    face_landmarker = create_face_landmarker(PYTHON_DIR / 'weights' / 'face_landmarker_v2_with_blendshapes.task')
 
     # Load the frames and draw the landmarks
     while True:
@@ -107,7 +99,7 @@ if __name__ == '__main__':
         # import pdb; pdb.set_trace()
 
         # Detect the landmarks
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame.astype(np.uint8))
+        mp_image = mp_image_from_frame(frame)
         detection_results = face_landmarker.detect(mp_image)
 
         # Ensure there is at least one face detected

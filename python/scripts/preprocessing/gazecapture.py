@@ -17,10 +17,7 @@ import cv2
 from PIL import Image
 import yaml
 import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
-
+from webeyetrack.mp_compat import create_face_landmarker, mp_image_from_frame
 from webeyetrack.model_based import (
     estimate_face_width, 
     face_reconstruction,
@@ -112,13 +109,7 @@ class GazeCaptureDataset():
 
     def load_model(self):
 
-        # Setup MediaPipe Face Facial Landmark model
-        base_options = python.BaseOptions(model_asset_path=str(FACE_LANDMARKER_PATH))
-        options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                            output_face_blendshapes=True,
-                                            output_facial_transformation_matrixes=True,
-                                            num_faces=1)
-        self.face_landmarker = vision.FaceLandmarker.create_from_options(options)
+        self.face_landmarker = create_face_landmarker(FACE_LANDMARKER_PATH)
 
     def preprocessing(self):
 
@@ -300,7 +291,7 @@ class GazeCaptureDataset():
                     self.load_model()
 
                 # Detect the facial landmarks via MediaPipe
-                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_np)
+                mp_image = mp_image_from_frame(image_np)
                 detection_results = self.face_landmarker.detect(mp_image)
                 i_h, i_w, _ = image_np.shape
 
@@ -318,7 +309,10 @@ class GazeCaptureDataset():
                     continue
 
                 # Save the detection results as numpy arrays
-                face_landmarks_all = np.array([[lm.x, lm.y, lm.z, lm.visibility, lm.presence] for lm in face_landmarks_proto])
+                face_landmarks_all = np.array([
+                    [lm.x, lm.y, lm.z, 0.0 if lm.visibility is None else lm.visibility, 0.0 if lm.presence is None else lm.presence]
+                    for lm in face_landmarks_proto
+                ], dtype=np.float32)
                 face_landmarks_rt = detection_results.facial_transformation_matrixes[0]
                 face_blendshapes = detection_results.face_blendshapes[0]
                 face_landmarks = np.array([[lm.x * i_w, lm.y * i_h] for lm in face_landmarks_proto])

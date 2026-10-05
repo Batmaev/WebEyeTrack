@@ -2,9 +2,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+from webeyetrack.mp_compat import create_face_landmarker, mp_image_from_frame
 import open3d as o3d
 import pathlib
 import trimesh
@@ -414,17 +412,7 @@ def main():
         eyeball_R[i] = np.eye(3)
         iris_3d_pt[i] = o3d.geometry.PointCloud()
 
-    # 2) Setup MediaPipe
-    base_options = python.BaseOptions(
-        model_asset_path=str(PYTHON_DIR / 'weights' / 'face_landmarker_v2_with_blendshapes.task')
-    )
-    options = vision.FaceLandmarkerOptions(
-        base_options=base_options,
-        output_face_blendshapes=True,
-        output_facial_transformation_matrixes=True,
-        num_faces=1
-    )
-    face_landmarker = vision.FaceLandmarker.create_from_options(options)
+    face_landmarker = create_face_landmarker(PYTHON_DIR / 'weights' / 'face_landmarker_v2_with_blendshapes.task')
 
     # Initialize Open3D Visualizer
     visual = o3d.visualization.Visualizer()
@@ -465,7 +453,7 @@ def main():
 
         frame = cv2.flip(frame, 1)
 
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame.astype(np.uint8))
+        mp_image = mp_image_from_frame(frame)
         detection_results = face_landmarker.detect(mp_image)
         if not detection_results.face_landmarks:
             cv2.imshow("Face Mesh", frame)
@@ -483,7 +471,10 @@ def main():
             continue
 
         # Extract information fro the results
-        face_landmarks = np.array([[lm.x, lm.y, lm.z, lm.visibility, lm.presence] for lm in face_landmarks_proto])
+        face_landmarks = np.array([
+            [lm.x, lm.y, lm.z, 0.0 if lm.visibility is None else lm.visibility, 0.0 if lm.presence is None else lm.presence]
+            for lm in face_landmarks_proto
+        ], dtype=np.float32)
         face_blendshapes = np.array([bs.score for bs in detection_results.face_blendshapes[0]])
 
         # Convert uvz to xyz

@@ -3,15 +3,17 @@ from typing import Optional
 import cv2
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg') 
+try:
+    import tkinter  # noqa: F401
+except ImportError:
+    matplotlib.use('Agg')
+else:
+    matplotlib.use('TkAgg') 
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 import math
-import imutils
-import mediapipe as mp
-from mediapipe import solutions
-from mediapipe.framework.formats import landmark_pb2
-from sklearn.manifold import TSNE
+from mediapipe.tasks.python.vision import drawing_styles, drawing_utils
+from mediapipe.tasks.python.vision.face_landmarker import FaceLandmarksConnections
 
 from .data_protocols import GazeResult, EyeResult
 from .model_based import vector_to_pitch_yaw, rotation_matrix_to_euler_angles
@@ -55,6 +57,7 @@ def plot_tsne_colored_by_pog(embeddings: np.ndarray, pogs: np.ndarray, perplexit
 
     # Apply t-SNE
     print("Running t-SNE...")
+    from sklearn.manifold import TSNE
     tsne = TSNE(n_components=2, perplexity=perplexity, learning_rate='auto', init='pca', random_state=42)
     reduced = tsne.fit_transform(embeddings)
 
@@ -186,32 +189,24 @@ def draw_landmarks_on_image(rgb_image, detection_result):
         face_landmarks = face_landmarks_list[idx]
 
         # Draw the face landmarks.
-        face_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
-        face_landmarks_proto.landmark.extend([
-        landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in face_landmarks
-        ])
-
-        solutions.drawing_utils.draw_landmarks(
+        drawing_utils.draw_landmarks(
             image=annotated_image,
-            landmark_list=face_landmarks_proto,
-            connections=mp.solutions.face_mesh.FACEMESH_TESSELATION,
+            landmark_list=face_landmarks,
+            connections=FaceLandmarksConnections.FACE_LANDMARKS_TESSELATION,
             landmark_drawing_spec=None,
-            connection_drawing_spec=mp.solutions.drawing_styles
-            .get_default_face_mesh_tesselation_style())
-        solutions.drawing_utils.draw_landmarks(
+            connection_drawing_spec=drawing_styles.get_default_face_mesh_tesselation_style())
+        drawing_utils.draw_landmarks(
             image=annotated_image,
-            landmark_list=face_landmarks_proto,
-            connections=mp.solutions.face_mesh.FACEMESH_CONTOURS,
+            landmark_list=face_landmarks,
+            connections=FaceLandmarksConnections.FACE_LANDMARKS_CONTOURS,
             landmark_drawing_spec=None,
-            connection_drawing_spec=mp.solutions.drawing_styles
-            .get_default_face_mesh_contours_style())
-        solutions.drawing_utils.draw_landmarks(
+            connection_drawing_spec=drawing_styles.get_default_face_mesh_contours_style())
+        drawing_utils.draw_landmarks(
             image=annotated_image,
-            landmark_list=face_landmarks_proto,
-            connections=mp.solutions.face_mesh.FACEMESH_IRISES,
+            landmark_list=face_landmarks,
+            connections=FaceLandmarksConnections.FACE_LANDMARKS_LEFT_IRIS + FaceLandmarksConnections.FACE_LANDMARKS_RIGHT_IRIS,
             landmark_drawing_spec=None,
-            connection_drawing_spec=mp.solutions.drawing_styles
-            .get_default_face_mesh_iris_connections_style())
+            connection_drawing_spec=drawing_styles.get_default_face_mesh_iris_connections_style())
 
     return annotated_image
     

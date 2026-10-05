@@ -17,10 +17,8 @@ from PIL import Image
 import scipy.io
 import yaml
 import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
 
+from webeyetrack.mp_compat import create_face_landmarker, mp_image_from_frame
 from webeyetrack.constants import FACE_LANDMARKER_PATH, GIT_ROOT
 from webeyetrack.vis import draw_gaze_origin, draw_axis, draw_landmarks_on_image
 from webeyetrack.data_protocols import Annotations, CalibrationData, Sample
@@ -239,13 +237,7 @@ class EyeDiapDataset():
         # if self.video_type == 'hd':
         #     raise RuntimeError("HD video is not supported yet. TODO: Gaze direction does not appear to be correct in HD video.")
 
-        # Setup MediaPipe Face Facial Landmark model
-        base_options = python.BaseOptions(model_asset_path=str(FACE_LANDMARKER_PATH))
-        options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                            output_face_blendshapes=True,
-                                            output_facial_transformation_matrixes=True,
-                                            num_faces=1)
-        self.face_landmarker = vision.FaceLandmarker.create_from_options(options)
+        self.face_landmarker = create_face_landmarker(FACE_LANDMARKER_PATH)
 
         # Saving information
         # self.samples: List[Sample] = []
@@ -529,7 +521,10 @@ class EyeDiapDataset():
                         i_h, i_w, _ = desired_frame.shape
 
                         # Face landmakrs
-                        face_landmarks_all = np.array([[lm.x, lm.y, lm.z, lm.visibility, lm.presence] for lm in face_landmarks_proto])
+                        face_landmarks_all = np.array([
+                            [lm.x, lm.y, lm.z, 0.0 if lm.visibility is None else lm.visibility, 0.0 if lm.presence is None else lm.presence]
+                            for lm in face_landmarks_proto
+                        ], dtype=np.float32)
                         face_landmarks_rt = detection_results.facial_transformation_matrixes[0]
                         face_blendshapes = detection_results.face_blendshapes[0]
                         face_blendshapes = np.array([x.score for x in face_blendshapes])
@@ -767,7 +762,7 @@ class EyeDiapDataset():
     def obtain_facial_landmarks(self, frame):
 
         # Detect the facial landmarks via MediaPipe
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame.astype(np.uint8))
+        mp_image = mp_image_from_frame(frame)
         detection_results = self.face_landmarker.detect(mp_image)
         
         # Compute the face bounding box based on the MediaPipe landmarks

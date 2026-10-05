@@ -3,10 +3,7 @@ import json
 
 import cv2
 import numpy as np
-import mediapipe as mp
 import matplotlib.pyplot as plt
-from mediapipe import solutions
-from mediapipe.framework.formats import landmark_pb2
 from skimage.transform import PiecewiseAffineTransform, warp
 
 from webeyetrack.vis import draw_axis, draw_landmarks_simple

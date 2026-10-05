@@ -7,7 +7,7 @@ authors = [
 ]
 license = 'MIT'
 readme = "README.md"
-requires-python = ">=3.9, <3.13" # mediapipe requires 3.9-3.12
+requires-python = ">=3.10"
 
 keywords = ["eye-tracking", "scalable", "rgb", "gaze"]
 
@@ -16,11 +16,14 @@ classifiers = [
 ]
 
 dependencies = [
-    'mediapipe',
-    'numpy',
-    "opencv-python",
+    "mediapipe>=1.0.1",
+    "numpy",
+    # MediaPipe 1.0 depends on opencv-contrib-python; opencv-python installs the same cv2 module.
+    "opencv-contrib-python>=4.10,<5",
     "scipy",
-    "tensorflow",
+    # 2.22 is the first TensorFlow release with Python 3.14 wheels; 2.22.0 is still an rc.
+    "tensorflow>=2.22.0rc0; python_version>='3.14'",
+    "tensorflow>=2.16; python_version<'3.14'",
 ]
 
 [project.optional-dependencies]

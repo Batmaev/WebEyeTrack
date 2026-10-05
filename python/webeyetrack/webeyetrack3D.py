@@ -4,10 +4,6 @@ from collections import deque
 
 import tensorflow as tf
 import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
-
 from .model_based import (
     create_perspective_matrix, 
     face_reconstruction,
@@ -21,6 +17,7 @@ from .vis import TimeSeriesOscilloscope
 from .data_protocols import GazeResult, EyeResult
 from .constants import *
 from .utilities import transform_3d_to_3d
+from .mp_compat import create_face_landmarker, mp_image_from_frame
 
 PARAMETER_LIST = [
     'frame_height',
@@ -61,13 +58,7 @@ class WebEyeTrack3D():
             ear_threshold: float = 0.2,
         ):
 
-        # Setup MediaPipe Face Facial Landmark model
-        base_options = python.BaseOptions(model_asset_path=model_asset_path)
-        options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                            output_face_blendshapes=True,
-                                            output_facial_transformation_matrixes=True,
-                                            num_faces=1)
-        self.face_landmarker = vision.FaceLandmarker.create_from_options(options)
+        self.face_landmarker = create_face_landmarker(model_asset_path)
 
         # Create perspecive matrix variable
         self.perspective_matrix: Optional[np.ndarray] = None
@@ -308,7 +299,7 @@ class WebEyeTrack3D():
         tic = time.perf_counter()
 
         # Detect the landmarks
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame.astype(np.uint8))
+        mp_image = mp_image_from_frame(frame)
         detection_results = self.face_landmarker.detect(mp_image)
 
         # Compute the face bounding box based on the MediaPipe landmarks
@@ -318,7 +309,16 @@ class WebEyeTrack3D():
             return None, detection_results
         
         # Extract information fro the results
-        face_landmarks = np.array([[lm.x, lm.y, lm.z, lm.visibility, lm.presence] for lm in face_landmarks_proto])
+        face_landmarks = np.array([
+            [
+                lm.x,
+                lm.y,
+                lm.z,
+                0.0 if lm.visibility is None else lm.visibility,
+                0.0 if lm.presence is None else lm.presence,
+            ]
+            for lm in face_landmarks_proto
+        ], dtype=np.float32)
         face_rt = detection_results.facial_transformation_matrixes[0]
         face_blendshapes = np.array([bs.score for bs in detection_results.face_blendshapes[0]])
         
